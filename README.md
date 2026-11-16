@@ -16,7 +16,7 @@ Follow these steps to run the backend server and database locally on your machin
 ### Step 1: Clone the repository
 Open your terminal and clone this project:
 ```bash
-git clone [https://github.com/marypod/skhodka_backend.git](https://github.com/marypod/skhodka_backend.git)
+git clone [https://github.com/skhodki/backend-database.git](https://github.com/skhodki/backend-database.git)
 cd skhodka_backend
 Step 2: Set up the Database (PostgreSQL)
 Open pgAdmin (or your preferred PostgreSQL client).
