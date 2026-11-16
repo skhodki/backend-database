@@ -4,14 +4,16 @@ from datetime import datetime
 from database import get_db_connection
 from psycopg2.extras import RealDictCursor
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 app = FastAPI(title="Skhodka API", description="Backend for finding interest-based meetups and events")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"], 
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -27,9 +29,25 @@ class EventCreate(BaseModel):
 class JoinEvent(BaseModel):
     user_id: int
 
-@app.get("/")
-def read_root():
-    return {"message": "Skhodka API server is running!"}
+@app.get("/users")
+def get_all_users():
+    """Получить список всех пользователей"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection error")
+
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            query = """
+                SELECT u.username, u.email, u.city
+                FROM users u;
+            """
+            cursor.execute(query)
+            return cursor.fetchall()
+    except Exception as u:
+        raise HTTPException(status_code=500, detail=str(u))
+    finally:
+        conn.close()
 
 @app.get("/events")
 def get_all_events():
@@ -37,7 +55,7 @@ def get_all_events():
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database connection error")
-    
+
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             query = """
@@ -58,7 +76,7 @@ def create_event(event: EventCreate):
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database connection error")
-        
+
     try:
         with conn.cursor() as cursor:
             query = """
@@ -67,11 +85,11 @@ def create_event(event: EventCreate):
                 RETURNING event_id;
             """
             cursor.execute(query, (
-                event.title, event.description, event.location_id, 
+                event.title, event.description, event.location_id,
                 event.event_date, event.min_participants, event.max_participants, event.creator_id
             ))
             new_event_id = cursor.fetchone()[0]
-            
+
             conn.commit()
             return {"message": "Event successfully created!", "event_id": new_event_id}
     except Exception as e:
@@ -86,15 +104,15 @@ def join_event(event_id: int, join_data: JoinEvent):
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database connection error")
-    
+
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute("""
-                INSERT INTO event_participants (event_id, user_id) 
-                VALUES (%s, %s) 
+                INSERT INTO event_participants (event_id, user_id)
+                VALUES (%s, %s)
                 ON CONFLICT (event_id, user_id) DO NOTHING;
             """, (event_id, join_data.user_id))
-            
+
             cursor.execute("""
                 SELECT e.min_participants, COUNT(ep.user_id) as current_count
                 FROM events e
@@ -102,17 +120,17 @@ def join_event(event_id: int, join_data: JoinEvent):
                 WHERE e.event_id = %s
                 GROUP BY e.event_id;
             """, (event_id,))
-            
+
             result = cursor.fetchone()
-            
+
             if result and result['current_count'] >= result['min_participants']:
                 cursor.execute("""
                     UPDATE events SET status = 'confirmed' WHERE event_id = %s;
                 """, (event_id,))
-            
+
             conn.commit()
             return {
-                "message": "Successfully joined!", 
+                "message": "Successfully joined!",
                 "current_participants": result['current_count'],
                 "required": result['min_participants']
             }
@@ -128,7 +146,7 @@ def get_matching_events(user_id: int):
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database connection error")
-        
+
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             query = """
@@ -141,12 +159,16 @@ def get_matching_events(user_id: int):
             """
             cursor.execute(query, (user_id,))
             matched_events = cursor.fetchall()
-            
+
             if not matched_events:
                 return {"message": "No matching events found yet, but you can create your own!"}
-                
+
             return matched_events
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+
+# Ensure that a request for "/" serves up "public/index.html"
+app.mount("/", StaticFiles(directory=Path("public"), html=True))

@@ -43,7 +43,11 @@ Step 4: Install Dependencies
 Open the terminal in the project folder and run:
 
 Bash
+python -m venv .venv
+# or python3 -m venv .venv on MacOS
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+
 Step 5: Start the Server
 Run the following command to start the FastAPI server:
 
