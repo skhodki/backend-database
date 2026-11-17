@@ -39,8 +39,14 @@ DB_PORT=5432
 DB_NAME=skhodka
 DB_USER=postgres
 DB_PASSWORD=your_postgres_password
-Step 4: Install Dependencies
-Open the terminal in the project folder and run:
+
+4. Install Dependencies
+Open the terminal in the project folder and create a virtual environment:
+
+```bash
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 
 Bash
 pip install -r requirements.txt
