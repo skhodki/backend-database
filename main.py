@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from datetime import datetime
@@ -7,14 +8,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-app = FastAPI(title="Skhodka API", description="Backend for finding interest-based meetups and events")
+app = FastAPI(
+    title="Skhodka API",
+    description="Backend for finding interest-based meetup events"
+)
+
+origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
 
 class EventCreate(BaseModel):
@@ -38,14 +44,33 @@ def get_all_users():
 
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            query = """
-                SELECT u.username, u.email, u.city
-                FROM users u;
-            """
+            query = """SELECT * FROM users;"""
             cursor.execute(query)
             return cursor.fetchall()
-    except Exception as u:
-        raise HTTPException(status_code=500, detail=str(u))
+    except Exception as e:
+        print(f"[get_all_users] {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail="Database query failed")
+    finally:
+        conn.close()
+
+@app.get("/locations")
+def get_all_locations():
+    """Получить список всех местоположений"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection error")
+
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            query = """SELECT * FROM locations;"""
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            print(f"[ask] rows: { rows }")
+            return rows
+    
+    except Exception as e:
+        print(f"[get_all_users] {type(e).__name__}: {e}")  # server log
+        raise HTTPException(status_code=500, detail="Database query failed")
     finally:
         conn.close()
 
